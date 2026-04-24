@@ -1,7 +1,12 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+*.pyc
 *.py[codz]
 *$py.class
+data/raw/*
+!data/raw/.gitkeep
+data/output/*
+!data/output/.gitkeep
 
 # C extensions
 *.so
