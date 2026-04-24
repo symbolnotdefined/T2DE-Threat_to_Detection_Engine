@@ -4,9 +4,10 @@ Transforming Threat Intelligence into Behavioral Detection Logic
 ## Features
 
 - Parse threat intelligence reports from **text files** or **URLs**
-- Extract structured threat data using AI (Claude Opus 4)
+- Extract structured threat data using AI (supports Ollama, Anthropic Claude, OpenAI GPT)
 - Generate detection logic and IOCs
 - Output formatted markdown reports
+- **Free local option with Ollama** - no API costs!
 
 ## Installation
 
@@ -16,13 +17,44 @@ pip3 install -r requirements.txt
 
 ## Configuration
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root and configure your preferred LLM provider:
 
+### Option 1: Ollama (Free, Local)
+
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
+MODEL_TEMPERATURE=0
+MODEL_TIMEOUT=60.0
 ```
+
+**Setup Ollama:**
+1. Install Ollama from https://ollama.ai/
+2. Pull a model: `ollama pull llama3.1`
+3. Start Ollama: `ollama serve`
+
+### Option 2: Anthropic Claude
+
+```bash
+LLM_PROVIDER=anthropic
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
+MODEL_TEMPERATURE=0
+MODEL_TIMEOUT=60.0
 ```
 
 Get your API key from: https://console.anthropic.com/
+
+### Option 3: OpenAI GPT
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your_openai_api_key_here
+MODEL_TEMPERATURE=0
+MODEL_TIMEOUT=60.0
+```
+
+Get your API key from: https://platform.openai.com/
 
 ## Usage
 
