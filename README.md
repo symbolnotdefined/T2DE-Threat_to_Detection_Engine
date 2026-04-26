@@ -5,8 +5,9 @@ Transforming Threat Intelligence into Behavioral Detection Logic
 
 - Parse threat intelligence reports from **text files** or **URLs**
 - Extract structured threat data using AI (supports Ollama, Anthropic Claude, OpenAI GPT)
-- Generate detection logic and IOCs
-- Output formatted markdown reports
+- **Automatically match detections** from Sigma and Elastic repositories
+- Generate IOCs and attack chain analysis
+- Output formatted markdown reports with detection links
 - **Free local option with Ollama** - no API costs!
 
 ## Installation
@@ -75,14 +76,55 @@ python main.py --input https://example.com/threat-report --output data/output/an
 ## How It Works
 
 1. **Input**: Accepts either a local text file or a URL containing a threat report
-2. **Parsing**: Uses LangChain and GPT-4 to extract structured intelligence
-3. **Analysis**: Identifies attack chains, IOCs, and detection logic
-4. **Output**: Generates a formatted markdown report with actionable intelligence
+2. **Parsing**: Uses LangChain with your chosen LLM to extract structured intelligence
+3. **Analysis**: Identifies attack chains with MITRE ATT&CK techniques and IOCs
+4. **Detection Matching**: Automatically searches Sigma and Elastic repositories for relevant detection rules
+5. **Output**: Generates a formatted markdown report with matched detections and actionable intelligence
+
+### Detection Matching
+
+The tool automatically:
+- Clones/updates [SigmaHQ/sigma](https://github.com/SigmaHQ/sigma) and [elastic/detection-rules](https://github.com/elastic/detection-rules) repositories locally
+- Searches for detection rules matching MITRE ATT&CK techniques from the threat report
+- Matches rules based on keywords extracted from the threat intelligence
+- Provides direct links to matched detection rules in the repositories
+- Groups results by Sigma and Elastic rules for easy reference
+
+**First Run**: The tool will clone the detection repositories (~500MB total). Subsequent runs will update them via `git pull`.
 
 ## Output Structure
 
 The generated report includes:
-- Executive summary
-- Attack chain with MITRE ATT&CK techniques
-- Detection logic recommendations
-- Indicators of Compromise (IOCs)
+- **Executive Summary**: High-level overview of the threat
+- **Attack Chain**: Sequential steps with MITRE ATT&CK technique mappings
+- **Matched Detection Rules**:
+  - Sigma rules from SigmaHQ repository
+  - Elastic detection rules from elastic/detection-rules
+  - Direct links to rule files in GitHub
+  - Matched techniques and keywords for each rule
+- **Indicators of Compromise (IOCs)**: IPs, domains, hashes, file paths, etc.
+
+## Example Output
+
+```markdown
+## Matched Detection Rules
+
+### Sigma Rules
+
+#### Suspicious PowerShell Execution
+- **Description:** Detects suspicious PowerShell command execution
+- **Severity:** high
+- **Matched Techniques:** T1059.001
+- **Matched Keywords:** powershell, execution
+- **Source:** [rules/windows/process_creation/proc_creation_win_susp_powershell.yml](https://github.com/SigmaHQ/sigma/blob/master/rules/...)
+- **Repository:** SigmaHQ/sigma
+
+### Elastic Detection Rules
+
+#### Command Shell Activity
+- **Description:** Identifies command shell execution patterns
+- **Severity:** medium
+- **Matched Techniques:** T1059
+- **Source:** [rules/windows/execution_command_shell.toml](https://github.com/elastic/detection-rules/blob/main/rules/...)
+- **Repository:** elastic/detection-rules
+```

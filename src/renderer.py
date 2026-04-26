@@ -1,4 +1,3 @@
-import yaml
 from .models import ThreatReport
 
 class MarkdownRenderer:
@@ -11,34 +10,45 @@ class MarkdownRenderer:
         for i, step in enumerate(report.attack_chain, 1):
             md += f"{i}. **{step.technique_name} ({step.technique_id})**: {step.description}\n"
         
-        md += "\n## Sigma Detection Rules\n\n"
-        for det in report.detections:
-            md += f"### {det.title}\n\n"
+        md += "\n## Matched Detection Rules\n\n"
+        
+        if not report.detections:
+            md += "*No detection rules matched from repositories.*\n\n"
+        else:
+            # Group detections by repository
+            sigma_detections = [d for d in report.detections if 'sigma' in d.repository.lower()]
+            elastic_detections = [d for d in report.detections if 'elastic' in d.repository.lower()]
             
-            # Build Sigma rule structure
-            sigma_rule = {
-                "title": det.title,
-                "id": None,  # Would be generated with UUID in production
-                "status": det.status,
-                "description": det.description,
-                "references": [],
-                "author": "T2DE - Threat to Detection Engine",
-                "date": None,  # Would be current date in production
-                "tags": det.tags,
-                "logsource": det.logsource,
-                "detection": det.detection,
-                "falsepositives": det.falsepositives,
-                "level": det.level
-            }
+            if sigma_detections:
+                md += "### Sigma Rules\n\n"
+                for det in sigma_detections:
+                    md += f"#### {det.title}\n"
+                    md += f"- **Description:** {det.description}\n"
+                    if det.level:
+                        md += f"- **Severity:** {det.level}\n"
+                    if det.matched_techniques:
+                        md += f"- **Matched Techniques:** {', '.join(det.matched_techniques)}\n"
+                    if det.matched_keywords:
+                        md += f"- **Matched Keywords:** {', '.join(det.matched_keywords[:5])}\n"
+                    if det.tags:
+                        md += f"- **Tags:** {', '.join(det.tags[:5])}\n"
+                    md += f"- **Source:** [{det.file_path}]({det.url})\n"
+                    md += f"- **Repository:** {det.repository}\n\n"
             
-            # Remove None values for cleaner output
-            sigma_rule = {k: v for k, v in sigma_rule.items() if v is not None and v != []}
-            
-            # Convert to YAML and add to markdown
-            md += "```yaml\n"
-            md += yaml.dump(sigma_rule, default_flow_style=False, sort_keys=False, allow_unicode=True)
-            md += "```\n\n"
-            
+            if elastic_detections:
+                md += "### Elastic Detection Rules\n\n"
+                for det in elastic_detections:
+                    md += f"#### {det.title}\n"
+                    md += f"- **Description:** {det.description}\n"
+                    if det.level:
+                        md += f"- **Severity:** {det.level}\n"
+                    if det.matched_techniques:
+                        md += f"- **Matched Techniques:** {', '.join(det.matched_techniques)}\n"
+                    if det.matched_keywords:
+                        md += f"- **Matched Keywords:** {', '.join(det.matched_keywords[:5])}\n"
+                    md += f"- **Source:** [{det.file_path}]({det.url})\n"
+                    md += f"- **Repository:** {det.repository}\n\n"
+        
         md += "## Indicators of Compromise\n"
         md += "| Type | Value | Context |\n| --- | --- | --- |\n"
         for ioc in report.iocs:

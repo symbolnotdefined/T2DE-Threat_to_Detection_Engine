@@ -8,6 +8,9 @@ data/raw/*
 data/output/*
 !data/output/.gitkeep
 
+# Detection rule repositories (cloned locally)
+detection_repos/
+
 # C extensions
 *.so
 

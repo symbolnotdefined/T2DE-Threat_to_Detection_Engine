@@ -11,19 +11,21 @@ class AttackStep(BaseModel):
     technique_name: str = Field(..., description="The name of the technique")
     description: str = Field(..., description="A brief narrative of what the actor did here.")
 
-class DetectionLogic(BaseModel):
-    title: str = Field(..., description="A short name for the detection")
-    description: str = Field(..., description="Description of what this detection identifies")
-    status: str = Field(default="experimental", description="Sigma rule status: stable, test, or experimental")
-    logsource: Dict[str, Any] = Field(..., description="Sigma logsource definition with category, product, and/or service")
-    detection: Dict[str, Any] = Field(..., description="Sigma detection logic with selection and condition")
-    falsepositives: List[str] = Field(default_factory=list, description="Known false positive scenarios")
-    level: str = Field(..., description="Sigma level: informational, low, medium, high, or critical")
-    tags: List[str] = Field(default_factory=list, description="MITRE ATT&CK tags and other relevant tags")
+class MatchedDetection(BaseModel):
+    """Represents a matched detection rule from Sigma or Elastic repositories."""
+    title: str = Field(..., description="Detection rule title")
+    description: str = Field(..., description="What this detection identifies")
+    repository: str = Field(..., description="Source repository (SigmaHQ/sigma or elastic/detection-rules)")
+    url: str = Field(..., description="GitHub URL to the rule")
+    file_path: str = Field(..., description="Relative path in repository")
+    level: Optional[str] = Field(default=None, description="Severity level")
+    matched_techniques: List[str] = Field(default_factory=list, description="MITRE ATT&CK techniques that matched")
+    matched_keywords: List[str] = Field(default_factory=list, description="Keywords that matched")
+    tags: List[str] = Field(default_factory=list, description="Rule tags")
 
 class ThreatReport(BaseModel):
     title: str
     summary: str = Field(..., description="A 3-4 sentence executive summary of the threat.")
     attack_chain: List[AttackStep] = Field(..., description="Sequential steps of the intrusion.")
-    detections: List[DetectionLogic]
+    detections: List[MatchedDetection] = Field(default_factory=list, description="Matched detection rules from repositories")
     iocs: List[IOC]
