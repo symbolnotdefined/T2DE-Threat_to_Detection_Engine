@@ -3,12 +3,38 @@ Transforming Threat Intelligence into Behavioral Detection Logic
 
 ## Features
 
+### 🎯 Core Capabilities
 - Parse threat intelligence reports from **text files** or **URLs**
 - Extract structured threat data using AI (supports Ollama, Anthropic Claude, OpenAI GPT)
+- Map attack chains to **MITRE ATT&CK** techniques
+- Generate comprehensive IOC analysis
+
+### 🔍 Detection Matching
 - **Automatically match detections** from Sigma and Elastic repositories
-- Generate IOCs and attack chain analysis
-- Output formatted markdown reports with detection links
+- Link to **Atomic Red Team** tests for validation
+- Search across 1000+ community detection rules
+
+### 📊 Coverage Analysis
+- **Detection gap identification** - find uncovered techniques
+- **Coverage scoring** - quantify detection quality (0-100 scale)
+- **Priority recommendations** - actionable detection engineering tasks
+- Visual coverage grading (A-F scale)
+
+### 🤖 AI-Powered Detection Engineering
+- **Auto-generate Sigma rules** for detection gaps
+- **Create hunting queries** in multiple formats (Splunk, KQL, EQL)
+- **Extract behavioral patterns** from attack chains
+- **Suggest data sources** and implementation guidance
+- **Provide tuning recommendations** for each detection
+
+### � Testing & Validation
+- Map techniques to Atomic Red Team test cases
+- Provide validation methodology for each detection
+- Show testable attack simulations
+
+### 💰 Cost-Effective
 - **Free local option with Ollama** - no API costs!
+- Works offline after initial repository cloning
 
 ## Installation
 
@@ -57,6 +83,21 @@ MODEL_TIMEOUT=60.0
 
 Get your API key from: https://platform.openai.com/
 
+### Performance Tuning (Optional)
+
+```bash
+# Enable multiple query types for hunting queries (slower but more comprehensive)
+# Default: Only generates Splunk queries (7 LLM calls, ~35-210 seconds)
+# With this enabled: Generates Splunk + KQL queries (10 LLM calls, ~50-300 seconds)
+ENABLE_MULTI_QUERY_TYPES=true
+```
+
+**Performance Notes:**
+- AI detection generation makes 7 LLM calls by default (3 Sigma rules + 3 hunting queries + 1 pattern extraction)
+- Each LLM call takes 5-30 seconds depending on provider and model
+- Total time: ~35-210 seconds for default configuration
+- Enable `ENABLE_MULTI_QUERY_TYPES=true` for more comprehensive hunting queries at the cost of longer processing time
+
 ## Usage
 
 ### From a text file:
@@ -81,16 +122,31 @@ python main.py --input https://example.com/threat-report --output data/output/an
 4. **Detection Matching**: Automatically searches Sigma and Elastic repositories for relevant detection rules
 5. **Output**: Generates a formatted markdown report with matched detections and actionable intelligence
 
-### Detection Matching
+### Detection Matching & Coverage Analysis
 
 The tool automatically:
-- Clones/updates [SigmaHQ/sigma](https://github.com/SigmaHQ/sigma) and [elastic/detection-rules](https://github.com/elastic/detection-rules) repositories locally
-- Searches for detection rules matching MITRE ATT&CK techniques from the threat report
-- Matches rules based on keywords extracted from the threat intelligence
-- Provides direct links to matched detection rules in the repositories
-- Groups results by Sigma and Elastic rules for easy reference
+1. **Clones/updates repositories:**
+   - [SigmaHQ/sigma](https://github.com/SigmaHQ/sigma) - Community detection rules
+   - [elastic/detection-rules](https://github.com/elastic/detection-rules) - Elastic SIEM rules
+   - [Atomic Red Team](https://github.com/redcanaryco/atomic-red-team) - Attack test cases
 
-**First Run**: The tool will clone the detection repositories (~500MB total). Subsequent runs will update them via `git pull`.
+2. **Matches detections:**
+   - Searches for rules matching MITRE ATT&CK techniques
+   - Matches based on keywords from threat intelligence
+   - Provides direct GitHub links to detection rules
+
+3. **Analyzes coverage:**
+   - Calculates detection coverage percentage
+   - Identifies gaps (techniques without detections)
+   - Scores detection quality (0-100 scale)
+   - Assigns coverage grades (A-F)
+
+4. **Recommends actions:**
+   - Prioritizes gaps (CRITICAL, HIGH, MEDIUM, LOW)
+   - Links to Atomic Red Team tests for validation
+   - Provides actionable detection engineering tasks
+
+**First Run**: The tool will clone repositories (~800MB total). Subsequent runs update via `git pull`.
 
 ## Output Structure
 
@@ -106,25 +162,61 @@ The generated report includes:
 
 ## Example Output
 
-```markdown
-## Matched Detection Rules
+The tool generates comprehensive markdown reports with:
 
+### 1. Detection Coverage Analysis
+```markdown
+## Detection Coverage Analysis
+
+**Overall Coverage:** 🟡 GOOD (75.0%)
+
+### Summary
+- **Total Techniques:** 8
+- **Covered by Detections:** 6 (75.0%)
+- **Detection Gaps:** 2
+- **Total Detection Rules:** 12
+- **Techniques with Atomic Tests:** 7 (87.5%)
+```
+
+### 2. Matched Detection Rules
+```markdown
 ### Sigma Rules
 
 #### Suspicious PowerShell Execution
 - **Description:** Detects suspicious PowerShell command execution
 - **Severity:** high
 - **Matched Techniques:** T1059.001
-- **Matched Keywords:** powershell, execution
-- **Source:** [rules/windows/process_creation/proc_creation_win_susp_powershell.yml](https://github.com/SigmaHQ/sigma/blob/master/rules/...)
+- **Source:** [Link to GitHub]
 - **Repository:** SigmaHQ/sigma
+```
 
-### Elastic Detection Rules
+### 3. Atomic Red Team Tests
+```markdown
+## Atomic Red Team Test Coverage
 
-#### Command Shell Activity
-- **Description:** Identifies command shell execution patterns
-- **Severity:** medium
-- **Matched Techniques:** T1059
-- **Source:** [rules/windows/execution_command_shell.toml](https://github.com/elastic/detection-rules/blob/main/rules/...)
-- **Repository:** elastic/detection-rules
+### T1059.001 - PowerShell
+**Test Count:** 15 available tests
+
+#### Test #1: PowerShell Execution
+- **Description:** Execute PowerShell script...
+- **Platforms:** windows
+- **Executor:** powershell
+
+[View all tests on GitHub](...)
+```
+
+### 4. Critical Detection Gaps
+```markdown
+## Critical Detection Gaps
+
+### 🔴 CRITICAL: T1055.012 - Process Hollowing
+
+**Description:** Adversary injects code into suspended process...
+
+**Has Atomic Tests:** ✅ Yes
+
+**Recommendation:**
+Validate detection capability using 3 available Atomic Red Team tests |
+Develop detection for Process Hollowing focusing on: Adversary injects... |
+Review MITRE ATT&CK for data sources and detection opportunities
 ```

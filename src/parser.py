@@ -5,8 +5,10 @@ from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
-from .models import ThreatReport, MatchedDetection
+from .models import ThreatReport, MatchedDetection, DetectionGap, SuggestedSigmaRule, HuntingQuery, BehavioralPattern
 from .detection_matcher import DetectionMatcher
+from .coverage_analyzer import CoverageAnalyzer
+from .detection_suggester import DetectionSuggester
 
 load_dotenv()
 
@@ -15,6 +17,8 @@ class IntelParser:
         self.llm = self._initialize_llm()
         self.parser = PydanticOutputParser(pydantic_object=ThreatReport)
         self.detection_matcher = DetectionMatcher()
+        self.coverage_analyzer = CoverageAnalyzer()
+        self.detection_suggester = DetectionSuggester()
     
     def _initialize_llm(self):
         """Initialize the LLM based on the LLM_PROVIDER environment variable."""
@@ -95,7 +99,66 @@ class IntelParser:
             detections.append(MatchedDetection(**elastic_rule))
         
         result.detections = detections
+        result.atomic_tests = matched['atomic_tests']
+        
         print(f"\n✓ Total matched detections: {len(detections)}")
         print("="*60 + "\n")
+        
+        # Perform coverage analysis
+        print("="*60)
+        print("ANALYZING DETECTION COVERAGE")
+        print("="*60)
+        
+        coverage_analysis = self.coverage_analyzer.analyze_coverage(
+            result.attack_chain,
+            result.detections,
+            result.atomic_tests
+        )
+        
+        # Print coverage summary
+        print(self.coverage_analyzer.generate_coverage_summary(coverage_analysis))
+        
+        # Identify critical gaps
+        critical_gaps = self.coverage_analyzer.identify_critical_gaps(
+            coverage_analysis,
+            result.attack_chain
+        )
+        
+        # Convert to DetectionGap objects
+        result.critical_gaps = [DetectionGap(**gap) for gap in critical_gaps]
+        result.coverage_summary = coverage_analysis['summary']
+        
+        if critical_gaps:
+            print(f"\n⚠️  Identified {len(critical_gaps)} critical detection gaps")
+            for gap in critical_gaps[:3]:  # Show top 3
+                print(f"  - {gap['priority']}: {gap['technique_id']} - {gap['technique_name']}")
+        
+        print("="*60 + "\n")
+        
+        # Generate AI-powered detection suggestions for critical gaps
+        if result.critical_gaps and len(result.critical_gaps) > 0:
+            suggestions = self.detection_suggester.generate_suggestions_for_gaps(
+                result.critical_gaps,
+                result.attack_chain,
+                max_suggestions=3  # Generate for top 3 gaps
+            )
+            
+            # Convert to Pydantic models
+            result.suggested_sigma_rules = [
+                SuggestedSigmaRule(**rule)
+                for rule in suggestions['sigma_rules']
+            ]
+            result.hunting_queries = [
+                HuntingQuery(**query)
+                for query in suggestions['hunting_queries']
+            ]
+            result.behavioral_patterns = [
+                BehavioralPattern(**pattern)
+                for pattern in suggestions['behavioral_patterns']
+            ]
+            
+            print(f"✓ Generated {len(result.suggested_sigma_rules)} Sigma rules")
+            print(f"✓ Generated {len(result.hunting_queries)} hunting queries")
+            print(f"✓ Identified {len(result.behavioral_patterns)} behavioral patterns\n")
         
         return result

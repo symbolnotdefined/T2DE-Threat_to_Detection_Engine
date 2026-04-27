@@ -27,6 +27,9 @@ class DetectionMatcher:
         self.elastic_repo_url = "https://github.com/elastic/detection-rules.git"
         self.elastic_repo_path = self.repos_dir / "detection-rules"
         
+        self.art_repo_url = "https://github.com/redcanaryco/atomic-red-team.git"
+        self.art_repo_path = self.repos_dir / "atomic-red-team"
+        
         # Ensure repos are cloned and up to date
         self._setup_repositories()
     
@@ -85,6 +88,32 @@ class DetectionMatcher:
                 print("✓ Elastic repository cloned")
             except subprocess.CalledProcessError as e:
                 print(f"Error: Failed to clone Elastic repo: {e}")
+        
+        # Setup Atomic Red Team repository
+        if self.art_repo_path.exists():
+            print(f"Updating Atomic Red Team repository at {self.art_repo_path}...")
+            try:
+                subprocess.run(
+                    ["git", "-C", str(self.art_repo_path), "pull"],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                print("✓ Atomic Red Team repository updated")
+            except subprocess.CalledProcessError as e:
+                print(f"Warning: Failed to update Atomic Red Team repo: {e}")
+        else:
+            print(f"Cloning Atomic Red Team repository to {self.art_repo_path}...")
+            try:
+                subprocess.run(
+                    ["git", "clone", "--depth", "1", self.art_repo_url, str(self.art_repo_path)],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                print("✓ Atomic Red Team repository cloned")
+            except subprocess.CalledProcessError as e:
+                print(f"Error: Failed to clone Atomic Red Team repo: {e}")
     
     def search_sigma_rules(self, technique_ids: List[str], keywords: List[str]) -> List[Dict[str, Any]]:
         """
@@ -226,16 +255,79 @@ class DetectionMatcher:
         
         return matched_rules[:15]  # Return top 15 matches
     
-    def match_detections(self, technique_ids: List[str], keywords: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    def search_atomic_tests(self, technique_ids: List[str]) -> Dict[str, Dict[str, Any]]:
         """
-        Match detections from both Sigma and Elastic repositories.
+        Search Atomic Red Team repository for test cases matching MITRE ATT&CK techniques.
+        
+        Args:
+            technique_ids: List of MITRE ATT&CK technique IDs (e.g., ['T1059.003'])
+            
+        Returns:
+            Dictionary mapping technique IDs to their atomic tests
+        """
+        atomic_tests = {}
+        atomics_dir = self.art_repo_path / "atomics"
+        
+        if not atomics_dir.exists():
+            print(f"Warning: Atomic Red Team atomics directory not found at {atomics_dir}")
+            return atomic_tests
+        
+        for technique_id in technique_ids:
+            # Atomic Red Team uses technique IDs as directory names
+            technique_dir = atomics_dir / technique_id
+            
+            if not technique_dir.exists():
+                continue
+            
+            # Look for the technique YAML file
+            yaml_file = technique_dir / f"{technique_id}.yaml"
+            if not yaml_file.exists():
+                continue
+            
+            try:
+                with open(yaml_file, 'r', encoding='utf-8') as f:
+                    test_data = yaml.safe_load(f)
+                    
+                    if not test_data:
+                        continue
+                    
+                    tests = []
+                    atomic_tests_list = test_data.get('atomic_tests', [])
+                    
+                    for idx, test in enumerate(atomic_tests_list, 1):
+                        tests.append({
+                            'test_number': idx,
+                            'name': test.get('name', 'Unnamed test'),
+                            'description': test.get('description', 'No description'),
+                            'supported_platforms': test.get('supported_platforms', []),
+                            'executor': test.get('executor', {}).get('name', 'unknown'),
+                            'auto_generated_guid': test.get('auto_generated_guid', 'N/A')
+                        })
+                    
+                    if tests:
+                        atomic_tests[technique_id] = {
+                            'technique_name': test_data.get('display_name', technique_id),
+                            'test_count': len(tests),
+                            'tests': tests,
+                            'file_path': str(yaml_file.relative_to(self.art_repo_path)),
+                            'url': f"https://github.com/redcanaryco/atomic-red-team/blob/master/{yaml_file.relative_to(self.art_repo_path)}"
+                        }
+            except Exception as e:
+                # Skip files that can't be parsed
+                continue
+        
+        return atomic_tests
+    
+    def match_detections(self, technique_ids: List[str], keywords: List[str]) -> Dict[str, Any]:
+        """
+        Match detections from Sigma, Elastic, and Atomic Red Team repositories.
         
         Args:
             technique_ids: List of MITRE ATT&CK technique IDs
             keywords: List of keywords extracted from threat report
             
         Returns:
-            Dictionary with 'sigma' and 'elastic' keys containing matched rules
+            Dictionary with 'sigma', 'elastic', and 'atomic_tests' keys
         """
         print(f"\nSearching for detections matching:")
         print(f"  - Techniques: {', '.join(technique_ids)}")
@@ -247,9 +339,14 @@ class DetectionMatcher:
         elastic_rules = self.search_elastic_rules(technique_ids, keywords)
         print(f"  ✓ Found {len(elastic_rules)} Elastic rules")
         
+        atomic_tests = self.search_atomic_tests(technique_ids)
+        total_tests = sum(data['test_count'] for data in atomic_tests.values())
+        print(f"  ✓ Found {len(atomic_tests)} techniques with {total_tests} Atomic tests")
+        
         return {
             'sigma': sigma_rules,
-            'elastic': elastic_rules
+            'elastic': elastic_rules,
+            'atomic_tests': atomic_tests
         }
 
 # Made with Bob

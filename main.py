@@ -14,8 +14,13 @@ def main():
     
     args = parser.parse_args()
 
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    # Check if LLM provider is configured
+    llm_provider = os.getenv("LLM_PROVIDER", "ollama").lower()
+    if llm_provider == "anthropic" and not os.getenv("ANTHROPIC_API_KEY"):
         print("[-] Error: ANTHROPIC_API_KEY not found in .env")
+        return
+    elif llm_provider == "openai" and not os.getenv("OPENAI_API_KEY"):
+        print("[-] Error: OPENAI_API_KEY not found in .env")
         return
 
     try:
