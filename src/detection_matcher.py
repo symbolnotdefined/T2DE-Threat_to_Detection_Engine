@@ -349,4 +349,3 @@ class DetectionMatcher:
             'atomic_tests': atomic_tests
         }
 
-# Made with Bob

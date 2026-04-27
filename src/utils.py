@@ -87,4 +87,3 @@ def get_report_content(input_path: str) -> str:
         with open(input_path, "r", encoding="utf-8") as f:
             return f.read()
 
-# Made with Bob

@@ -298,4 +298,3 @@ class CoverageAnalyzer:
         
         return "\n".join(lines)
 
-# Made with Bob

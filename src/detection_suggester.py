@@ -622,4 +622,3 @@ PATTERN_2:
         
         return suggestions
 
-# Made with Bob
