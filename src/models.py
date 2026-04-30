@@ -12,7 +12,7 @@ class AttackStep(BaseModel):
     description: str = Field(..., description="A brief narrative of what the actor did here.")
 
 class MatchedDetection(BaseModel):
-    """Represents a matched detection rule from Sigma or Elastic repositories."""
+    """Represents a context-aware matched detection rule with relevance scoring."""
     title: str = Field(..., description="Detection rule title")
     description: str = Field(..., description="What this detection identifies")
     repository: str = Field(..., description="Source repository (SigmaHQ/sigma or elastic/detection-rules)")
@@ -22,6 +22,8 @@ class MatchedDetection(BaseModel):
     matched_techniques: List[str] = Field(default_factory=list, description="MITRE ATT&CK techniques that matched")
     matched_keywords: List[str] = Field(default_factory=list, description="Keywords that matched")
     tags: List[str] = Field(default_factory=list, description="Rule tags")
+    relevance_score: Optional[float] = Field(default=None, description="AI-evaluated relevance score (0-10)")
+    relevance_reasoning: Optional[str] = Field(default=None, description="Why this detection is relevant to the attack")
 
 class AtomicTest(BaseModel):
     """Represents an Atomic Red Team test with relevance context."""

@@ -7,6 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from .models import ThreatReport, MatchedDetection, DetectionGap, SuggestedSigmaRule, HuntingQuery, BehavioralPattern
 from .detection_matcher import DetectionMatcher
+from .context_aware_matcher import ContextAwareMatcher
 from .coverage_analyzer import CoverageAnalyzer
 from .detection_suggester import DetectionSuggester
 
@@ -16,9 +17,22 @@ class IntelParser:
     def __init__(self):
         self.llm = self._initialize_llm()
         self.parser = PydanticOutputParser(pydantic_object=ThreatReport)
-        self.detection_matcher = DetectionMatcher()
+        
+        # Use context-aware matcher if enabled, otherwise use traditional matcher
+        use_context_aware = os.getenv("USE_CONTEXT_AWARE_MATCHING", "true").lower() == "true"
+        
+        if use_context_aware:
+            print("🧠 Using AI-powered context-aware detection matching")
+            self.context_aware_matcher = ContextAwareMatcher()
+            self.traditional_matcher = None
+        else:
+            print("📋 Using traditional keyword-based detection matching")
+            self.context_aware_matcher = None
+            self.traditional_matcher = DetectionMatcher()
+        
         self.coverage_analyzer = CoverageAnalyzer()
         self.detection_suggester = DetectionSuggester()
+        self.use_context_aware = use_context_aware
     
     def _initialize_llm(self):
         """Initialize the LLM based on the LLM_PROVIDER environment variable."""
@@ -75,33 +89,85 @@ class IntelParser:
         
         # Extract keywords from title, summary, and attack descriptions
         keywords = []
-        keywords.extend(result.title.split())
-        keywords.extend(result.summary.split())
-        for step in result.attack_chain:
-            keywords.extend(step.technique_name.split())
-            keywords.extend(step.description.split()[:5])  # First 5 words of each description
-        
-        # Remove common words and duplicates
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those'}
-        keywords = list(set([kw.lower().strip('.,;:!?()[]{}') for kw in keywords if len(kw) > 3 and kw.lower() not in stop_words]))
-        
         # Match detections from repositories
         print("\n" + "="*60)
         print("MATCHING DETECTIONS FROM REPOSITORIES")
         print("="*60)
-        matched = self.detection_matcher.match_detections(technique_ids, keywords[:10])
         
-        # Convert matched detections to MatchedDetection objects
-        detections = []
-        for sigma_rule in matched['sigma']:
-            detections.append(MatchedDetection(**sigma_rule))
-        for elastic_rule in matched['elastic']:
-            detections.append(MatchedDetection(**elastic_rule))
+        if self.use_context_aware:
+            # Context-aware matching: AI evaluates relevance for each attack step
+            detections = []
+            atomic_tests = []
+            
+            # Build full attack context for AI evaluation
+            attack_context = "\n".join([
+                f"{i+1}. {step.technique_name} ({step.technique_id}): {step.description}"
+                for i, step in enumerate(result.attack_chain)
+            ])
+            
+            if self.context_aware_matcher:
+                for step in result.attack_chain:
+                    # Find relevant detections for this specific attack step
+                    relevant_detections = self.context_aware_matcher.find_relevant_detections(
+                        step,
+                        attack_context,
+                        max_detections=3  # Top 3 most relevant per step
+                    )
+                    
+                    for det in relevant_detections:
+                        detections.append(MatchedDetection(**det))
+                    
+                    # Find relevant atomic tests
+                    relevant_tests = self.context_aware_matcher.find_relevant_atomic_tests(
+                        step,
+                        attack_context,
+                        max_tests=2  # Top 2 most relevant per step
+                    )
+                    
+                    atomic_tests.extend(relevant_tests)
+            
+            # Convert atomic_tests list to dictionary format expected by coverage_analyzer
+            atomic_tests_dict = {}
+            for test in atomic_tests:
+                technique_id = test.get('technique_id')
+                if technique_id:
+                    if technique_id not in atomic_tests_dict:
+                        atomic_tests_dict[technique_id] = {
+                            'technique_name': test.get('name', ''),
+                            'test_count': 0,
+                            'tests': []
+                        }
+                    atomic_tests_dict[technique_id]['test_count'] += 1
+                    atomic_tests_dict[technique_id]['tests'].append(test)
+            
+            result.detections = detections
+            result.atomic_tests = atomic_tests_dict
+            
+        else:
+            # Traditional keyword-based matching
+            keywords = []
+            keywords.extend(result.title.split())
+            keywords.extend(result.summary.split())
+            for step in result.attack_chain:
+                keywords.extend(step.technique_name.split())
+                keywords.extend(step.description.split()[:5])
+            
+            stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those'}
+            keywords = list(set([kw.lower().strip('.,;:!?()[]{}') for kw in keywords if len(kw) > 3 and kw.lower() not in stop_words]))
+            
+            if self.traditional_matcher:
+                matched = self.traditional_matcher.match_detections(technique_ids, keywords[:10])
+                
+                detections = []
+                for sigma_rule in matched['sigma']:
+                    detections.append(MatchedDetection(**sigma_rule))
+                for elastic_rule in matched['elastic']:
+                    detections.append(MatchedDetection(**elastic_rule))
+                
+                result.detections = detections
+                result.atomic_tests = matched['atomic_tests']
         
-        result.detections = detections
-        result.atomic_tests = matched['atomic_tests']
-        
-        print(f"\n✓ Total matched detections: {len(detections)}")
+        print(f"\n✓ Total matched detections: {len(result.detections)}")
         print("="*60 + "\n")
         
         # Perform coverage analysis

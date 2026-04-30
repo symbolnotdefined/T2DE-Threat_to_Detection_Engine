@@ -26,6 +26,14 @@ class MarkdownRenderer:
                     md += f"- **Description:** {det.description}\n"
                     if det.level:
                         md += f"- **Severity:** {det.level}\n"
+                    
+                    # Show relevance score if available (context-aware matching)
+                    if det.relevance_score is not None:
+                        score_emoji = "🟢" if det.relevance_score >= 8 else "🟡" if det.relevance_score >= 6 else "🟠"
+                        md += f"- **Relevance Score:** {score_emoji} {det.relevance_score}/10\n"
+                        if det.relevance_reasoning:
+                            md += f"- **Why Relevant:** {det.relevance_reasoning}\n"
+                    
                     if det.matched_techniques:
                         md += f"- **Matched Techniques:** {', '.join(det.matched_techniques)}\n"
                     if det.matched_keywords:
@@ -42,6 +50,14 @@ class MarkdownRenderer:
                     md += f"- **Description:** {det.description}\n"
                     if det.level:
                         md += f"- **Severity:** {det.level}\n"
+                    
+                    # Show relevance score if available (context-aware matching)
+                    if det.relevance_score is not None:
+                        score_emoji = "🟢" if det.relevance_score >= 8 else "🟡" if det.relevance_score >= 6 else "🟠"
+                        md += f"- **Relevance Score:** {score_emoji} {det.relevance_score}/10\n"
+                        if det.relevance_reasoning:
+                            md += f"- **Why Relevant:** {det.relevance_reasoning}\n"
+                    
                     if det.matched_techniques:
                         md += f"- **Matched Techniques:** {', '.join(det.matched_techniques)}\n"
                     if det.matched_keywords:
