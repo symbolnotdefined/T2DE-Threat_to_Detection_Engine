@@ -2,13 +2,19 @@
 pydantic>=2.0
 python-dotenv
 
-# LangChain and Anthropic
+# LangChain and LLM Providers
 langchain>=0.1.0
 langchain-anthropic>=0.1.0
+langchain-openai>=0.1.0
+langchain-ollama>=0.1.0
 langchain-core>=0.1.0
 anthropic>=0.18.0
+openai>=1.0.0
 
 # URL fetching and parsing
 requests>=2.31.0
 beautifulsoup4>=4.12.0
 lxml>=4.9.0
+
+# YAML processing for Sigma rules
+pyyaml>=6.0
